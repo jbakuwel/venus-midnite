@@ -2,7 +2,14 @@
 
 1. Copy all files from this repository to the directory /data/classic on your VenusOS system
 
-2. Edit battery.py and charger.py to update the constants (especially the IP address of your Midnite Classic)
+2. Edit battery.py and charger.py to update the constants:
+
+```
+MIDNITE_IP                      = <IP address of your Midnite Classic>
+MIDNITE_INTERVAL        = <query interval in seconds>
+MQTT_IP                         = <IP address of MQTT broker>
+MQTT_TOPIC                      = <Topic to use for MQTT messages>
+```
 
 3. Add the following lines to your /data/rcS.local
 
