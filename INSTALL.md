@@ -6,9 +6,11 @@
 
 3. Add the following lines to your /data/rcS.local
 
+```
 cd /service
 ln -s /data/classic/battery/service battery
 ln -s /data/classic/charger/service charger
+```
 
 4. Reboot
 
