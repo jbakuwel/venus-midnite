@@ -26,6 +26,7 @@ import paho.mqtt.client
 
 MIDNITE_IP			= "192.168.1.101"
 MIDNITE_TIMEOUT	= 10
+MQTT_ENABLED		= False
 MQTT_IP				= "192.168.1.100"
 MQTT_TOPIC			= "midnite"
 VERSION				= "v1.0"
@@ -81,31 +82,32 @@ class readMidnite ():
 				#logger.info ('Updating: SOC=%d, V=%f, A=%f, P=%f, T=%f' % (SOC, BATT_V, SHUNT_A, (BATT_V*SHUNT_A), BATT_T))
 				self.service._dbusservice['/Dc/0/Voltage']		= BATT_V
 				self.service._dbusservice['/Dc/0/Current']		= SHUNT_A
-				self.service._dbusservice['/Dc/0/Power']			= BATT_V * SHUNT_A
+				self.service._dbusservice['/Dc/0/Power']			= round (BATT_V * SHUNT_A)
 				self.service._dbusservice['/Dc/0/Temperature']	= BATT_T
 				self.service._dbusservice['/Soc']					= SOC
 				self.service._dbusservice['/Connected']			= True
-
-				if (self.mqttClient.connect (self.sMQTT) == 0):
-					try:
-						self.mqttClient.publish (self.sTopic + 'Voltage',		'{:0.2f}'.format (BATT_V),					retain = True)
-						time.sleep (0.1)
-						self.mqttClient.publish (self.sTopic + 'Current',		'{:0.2f}'.format (SHUNT_A),				retain = True)
-						time.sleep (0.1)
-						self.mqttClient.publish (self.sTopic + 'Power',			'{:0.2f}'.format (BATT_V * SHUNT_A),	retain = True)
-						time.sleep (0.1)
-						self.mqttClient.publish (self.sTopic + 'Temperature',	'{:0.1f}'.format (BATT_T),					retain = True)
-						time.sleep (0.1)
-						self.mqttClient.publish (self.sTopic + 'SOC',			'{:d}'.format (SOC),							retain = True)
-					except Exception as e:
-						log ('readModbus[{:s}]: {:s}'.format (self.sTopic, repr(e)))
-					finally:
-						self.mqttClient.disconnect ()
-					#end try
+				if MQTT_ENABLED:
+					if (self.mqttClient.connect (self.sMQTT) == 0):
+						try:
+							self.mqttClient.publish (self.sTopic + 'Voltage',		'{:0.2f}'.format (BATT_V),					retain = True)
+							time.sleep (0.1)
+							self.mqttClient.publish (self.sTopic + 'Current',		'{:0.2f}'.format (SHUNT_A),				retain = True)
+							time.sleep (0.1)
+							self.mqttClient.publish (self.sTopic + 'Power',			'{:0.2f}'.format (BATT_V * SHUNT_A),	retain = True)
+							time.sleep (0.1)
+							self.mqttClient.publish (self.sTopic + 'Temperature',	'{:0.1f}'.format (BATT_T),					retain = True)
+							time.sleep (0.1)
+							self.mqttClient.publish (self.sTopic + 'SOC',			'{:d}'.format (SOC),							retain = True)
+						except Exception as e:
+							log ('readModbus[{:s}]: {:s}'.format (self.sTopic, repr(e)))
+						finally:
+							self.mqttClient.disconnect ()
+						#end try
+					#end if
+				else:
+					logger.info ('unable to connect to %s' % self.sIP)
+					self.service._dbusservice['/Connected'] = False
 				#end if
-			else:
-				logger.info ('unable to connect to %s' % self.sIP)
-				self.service._dbusservice['/Connected'] = False
 			#end if
 		except Exception as e:
 			logger.info('Exception updating values: ' + repr(e))

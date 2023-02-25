@@ -24,6 +24,7 @@ from logger import setup_logging
 
 MIDNITE_IP			= "192.168.1.101"
 MIDNITE_TIMEOUT	= 10
+MQTT_ENABLED		= False
 MQTT_IP				= "192.168.1.100"
 MQTT_TOPIC			= "midnite"
 VERSION				= "v1.0"
@@ -54,7 +55,7 @@ class readMidnite ():
 		self.service		= Service
 		self.classic		= ModbusClient (self.sIP, port=502)
 		self.terminated	= False
-		self.service._dbusservice['/Mgmt/ProcessVersion']				= 'v0.9a'
+		self.service._dbusservice['/Mgmt/ProcessVersion']				= VERSION
 		#self.service._dbusservice['/Link/NetworkMode']					= None
 		#self.service._dbusservice['/Link/NetworkStatus']				= None
 		#self.service._dbusservice['/Link/ChargeVoltage']				= None
@@ -88,7 +89,6 @@ class readMidnite ():
 				PCB_T				= float(HR41.registers[33])/10
 				CHARGE_STATE	= (HR41.registers[19] & 0xFF00)>> 8
 				MIDNITE_STATE	= (HR41.registers[19] & 0x00FF)
-
 				SHUNT_A			= float (twos_complement(HR43.registers[70],16))/10
 
 				#logger.info ('Updating: State=%d, V=%f, A=%f, T=%f, CV=%f, CA=%f' % (242, PV_V, PV_A, BATT_T, BATT_V, BATT_A))
@@ -97,7 +97,7 @@ class readMidnite ():
 				self.service._dbusservice['/Pv/I']					= PV_A
 				self.service._dbusservice['/Dc/0/Voltage']		= BATT_V
 				self.service._dbusservice['/Dc/0/Current']		= BATT_A
-				self.service._dbusservice['/Yield/Power']			= PV_V * PV_A
+				self.service._dbusservice['/Yield/Power']			= round (PV_V * PV_A)
 				self.service._dbusservice['/Connected']			= True
 			else:
 				logger.info ('unable to connect to %s' % self.sIP)
