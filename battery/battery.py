@@ -25,7 +25,7 @@ from logger import setup_logging
 import paho.mqtt.client
 
 MIDNITE_IP			= "192.168.1.101"
-MIDNITE_TIMEOUT	= 10
+MIDNITE_TIMEOUT	    = 10 #seconds
 MQTT_ENABLED		= False
 MQTT_IP				= "192.168.1.100"
 MQTT_TOPIC			= "midnite"
@@ -41,8 +41,8 @@ def twos_complement (uValue, iBits):
 class readMidnite ():
 
 	def __init__ (self, sIP, iFrequency, sMQTT, sTopic, Service):
-		self.sIP				= sIP
-		self.iFrequency   = iFrequency
+		self.sIP			= sIP
+		self.iFrequency   	= iFrequency
 		self.service		= Service
 		self.classic		= ModbusClient (self.sIP, port=502)
 		self.sMQTT			= sMQTT
@@ -67,14 +67,14 @@ class readMidnite ():
 				UNIT_SW_DATE_D	= (HR41.registers[2] & 0x00FF)
 
 				SOC				= HR43.registers[72]
-				PV_V				= float(HR41.registers[15])/10
-				PV_A				= float(HR41.registers[20])/10
+				PV_V			= float(HR41.registers[15])/10
+				PV_A			= float(HR41.registers[20])/10
 				BATT_V			= float(HR41.registers[14])/10
 				BATT_A			= float(HR41.registers[16])/10
 				BATT_P			= HR41.registers[18]
 				BATT_T			= float(HR41.registers[31])/10
-				FET_T				= float(HR41.registers[32])/10
-				PCB_T				= float(HR41.registers[33])/10
+				FET_T			= float(HR41.registers[32])/10
+				PCB_T			= float(HR41.registers[33])/10
 				SHUNT_A			= float (twos_complement(HR43.registers[70],16))/10
 				CHARGE_STATE	= (HR41.registers[19] & 0xFF00)>> 8
 				MIDNITE_STATE	= (HR41.registers[19] & 0x00FF)
@@ -82,31 +82,34 @@ class readMidnite ():
 				#logger.info ('Updating: SOC=%d, V=%f, A=%f, P=%f, T=%f' % (SOC, BATT_V, SHUNT_A, (BATT_V*SHUNT_A), BATT_T))
 				self.service._dbusservice['/Dc/0/Voltage']		= BATT_V
 				self.service._dbusservice['/Dc/0/Current']		= SHUNT_A
-				self.service._dbusservice['/Dc/0/Power']			= round (BATT_V * SHUNT_A)
+				self.service._dbusservice['/Dc/0/Power']		= round (BATT_V * SHUNT_A)
 				self.service._dbusservice['/Dc/0/Temperature']	= BATT_T
-				self.service._dbusservice['/Soc']					= SOC
+				self.service._dbusservice['/Soc']				= SOC
 				self.service._dbusservice['/Connected']			= True
 				if MQTT_ENABLED:
 					if (self.mqttClient.connect (self.sMQTT) == 0):
 						try:
-							self.mqttClient.publish (self.sTopic + 'Voltage',		'{:0.2f}'.format (BATT_V),					retain = True)
+							self.mqttClient.publish (self.sTopic + 'Voltage',		'{:0.2f}'.format (BATT_V), retain = True)
 							time.sleep (0.1)
-							self.mqttClient.publish (self.sTopic + 'Current',		'{:0.2f}'.format (SHUNT_A),				retain = True)
+							self.mqttClient.publish (self.sTopic + 'Current',		'{:0.2f}'.format (SHUNT_A), retain = True)
 							time.sleep (0.1)
-							self.mqttClient.publish (self.sTopic + 'Power',			'{:0.2f}'.format (BATT_V * SHUNT_A),	retain = True)
+							self.mqttClient.publish (self.sTopic + 'Power',			'{:0.2f}'.format (BATT_V * SHUNT_A), retain = True)
 							time.sleep (0.1)
-							self.mqttClient.publish (self.sTopic + 'Temperature',	'{:0.1f}'.format (BATT_T),					retain = True)
+							self.mqttClient.publish (self.sTopic + 'Temperature',	'{:0.1f}'.format (BATT_T), retain = True)
 							time.sleep (0.1)
-							self.mqttClient.publish (self.sTopic + 'SOC',			'{:d}'.format (SOC),							retain = True)
+							self.mqttClient.publish (self.sTopic + 'SOC',			'{:d}'.format (SOC), retain = True)
 						except Exception as e:
-							log ('readModbus[{:s}]: {:s}'.format (self.sTopic, repr(e)))
+							log ('mqtt publish Error [{:s}]: {:s}'.format (self.sTopic, repr(e)))
 						finally:
 							self.mqttClient.disconnect ()
 						#end try
+					else:
+						logger.error ('Uable to connect to MQTT: IP=%s' % self.sMQTT)
+					
 					#end if
 				else:
-					logger.info ('unable to connect to %s' % self.sIP)
-					self.service._dbusservice['/Connected'] = False
+					logger.info ('MQTT Update disabled to %s' % self.sMQTT)
+					#self.service._dbusservice['/Connected'] = False
 				#end if
 			#end if
 		except Exception as e:
@@ -136,7 +139,7 @@ b = DbusDummyService (
     deviceinstance=0,
     paths={
 			#'/TimeToGo':					{'initial': None},
-			#'/CustomName':				{'initial': None},
+			#'/CustomName':					{'initial': None},
 			'/Soc':							{'initial': 20},
 			'/Dc/0/Voltage':				{'initial': 0},
 			'/Dc/0/Current':				{'initial': 0},
