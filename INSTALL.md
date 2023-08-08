@@ -5,10 +5,10 @@
 2. Edit battery.py and charger.py to update the constants:
 
 ```
-MIDNITE_IP			        = <IP address of your Midnite Classic>
-MIDNITE_TIMEOUT	        = <query interval in seconds>
-MQTT_ENABLED		        = False
-MQTT_IP				          = <IP address of MQTT broker>
+MIDNITE_IP              = <IP address of your Midnite Classic>
+MIDNITE_TIMEOUT         = <query interval in seconds>
+MQTT_ENABLED            = False
+MQTT_IP                 = <IP address of MQTT broker>
 MQTT_TOPIC              = <Topic to use for MQTT messages>
 ```
 
