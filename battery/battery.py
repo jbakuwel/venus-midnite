@@ -16,6 +16,7 @@ import sys
 import os
 import time
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
+import watchdog
 
 # our own packages
 sys.path.insert (1, os.path.join (os.path.dirname( __file__), '/opt/victronenergy/dbus-systemcalc-py/ext/velib_python'))
@@ -50,6 +51,8 @@ class readMidnite ():
 		self.mqttClient	= paho.mqtt.client.Client = paho.mqtt.client.Client ()
 		self.terminated	= False
 		self.service._dbusservice['/Mgmt/ProcessVersion']	= VERSION
+        self.watchdog = watchdog.Watchdog()
+		self.watchdog.start()
 		logger.info ('Initialised Midnite thread: IP=%s, Freq=%d' % (self.sIP, self.iFrequency))
 	#end __init__
 
@@ -60,6 +63,7 @@ class readMidnite ():
 				HR42 = self.classic.read_holding_registers (4200, 100)
 				HR43 = self.classic.read_holding_registers (4300, 100)
 				self.classic.close ()
+				self.watchdog.update ()
 
 				UNIT_ID			= HR41.registers[00]
 				UNIT_SW_DATE_Y	= HR41.registers[1]
