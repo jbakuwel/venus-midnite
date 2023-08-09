@@ -104,10 +104,10 @@ class readMidnite ():
 							self.mqttClient.disconnect ()
 						#end try
 					#end if
-				else:
-					logger.info ('unable to connect to %s' % self.sIP)
-					self.service._dbusservice['/Connected'] = False
 				#end if
+			else:
+				logger.info ('unable to connect to %s' % self.sIP)
+				self.service._dbusservice['/Connected'] = False
 			#end if
 		except Exception as e:
 			logger.info('Exception updating values: ' + repr(e))
