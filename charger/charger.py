@@ -2,8 +2,8 @@
 
 # Name: 		charger.py
 # Purpose:	Present a solar charger to VenusOS using values read from a Midnite Classic with a Whizbang Jr
-# Date:		17-11-2024
-# Version:	1.0
+# Date:		12-12-2024
+# Version:	2.0
 # Author:	Jan Bakuwel / YSolar NZ Ltd
 # License:	GNU General Public License v3.0
 
