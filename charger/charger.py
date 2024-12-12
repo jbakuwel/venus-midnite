@@ -2,7 +2,7 @@
 
 # Name: 		charger.py
 # Purpose:	Present a solar charger to VenusOS using values read from a Midnite Classic with a Whizbang Jr
-# Date:		23-02-2023
+# Date:		17-11-2024
 # Version:	1.0
 # Author:	Jan Bakuwel / YSolar NZ Ltd
 # License:	GNU General Public License v3.0
@@ -14,31 +14,15 @@ import logging
 import sys
 import os
 import time
-
 from pymodbus.client.sync import ModbusTcpClient as ModbusClient
 
-# our own packages
+# VenusOS packages
 sys.path.insert (1, os.path.join (os.path.dirname( __file__), '/opt/victronenergy/dbus-systemcalc-py/ext/velib_python'))
-from dbusdummyservice import DbusDummyService
+from vedbus import VeDbusService
 from logger import setup_logging
 
-MIDNITE_IP			= "192.168.1.101"
-MIDNITE_TIMEOUT	= 10
-MQTT_ENABLED		= False
-MQTT_IP				= "192.168.1.100"
-MQTT_TOPIC			= "midnite"
-VERSION				= "v1.0"
+import config
 
-MIDNITE_VICTRON = {
-	0:		0,	# Midnite Resting:	Victron Off
-	3:		4,	# Midnite Absorb:		Victron Absorption
-	4:		3,	# Midnite BulkMPPT:	Victron Bulk
-	5:		5,	# Midnite Float:		Victron Float
-	6:		5,	# Midnite FloatMPPT:	Victron Float
-	7:		7,	# Midnite Equalize:	Victron Equalize
-	10:	3,	# HyperVOC:				Victron Bulk - I guess
-	18:	7,	# EqualizeMPPT:		Victron Equalize
-}
 
 def twos_complement (uValue, iBits):
 	if (uValue & (1 << (iBits - 1))) != 0:		# If sign bit is set
@@ -49,19 +33,29 @@ def twos_complement (uValue, iBits):
 
 class readMidnite ():
 
-	def __init__ (self, sIP, iFrequency, Service):
+	def __init__ (self, sIP, iFrequency):
 		self.sIP				= sIP
 		self.iFrequency   = iFrequency
-		self.service		= Service
 		self.classic		= ModbusClient (self.sIP, port=502)
 		self.terminated	= False
-		self.service._dbusservice['/Mgmt/ProcessVersion']				= VERSION
-		#self.service._dbusservice['/Link/NetworkMode']					= None
-		#self.service._dbusservice['/Link/NetworkStatus']				= None
-		#self.service._dbusservice['/Link/ChargeVoltage']				= None
-		#self.service._dbusservice['/Link/ChargeCurrent']				= None
-		#self.service._dbusservice['/Settings/ChargeCurrentLimit']	= 70
-		self.service._dbusservice['/Settings/BmsPresent']				= False
+
+		logger.info ('Initialising Midnite thread: IP=%s, Freq=%d' % (self.sIP, self.iFrequency))
+		self.service = VeDbusService (servicename='com.victronenergy.solarcharger.midnite', register=False)
+		self.service.add_path('/DeviceInstance',			0)
+		self.service.add_path('/ProductName',				'Midnite Classic Solar Charger')
+		self.service.add_path('/Mgmt/ProcessName',		'charger.py')
+		self.service.add_path('/Mgmt/ProcessVersion',	config.VERSION)
+		self.service.add_path('/Mgmt/Connection',			'dbus')
+		self.service.add_path('/FirmwareVersion',			config.VERSION)
+		self.service.add_path('/HardwareVersion',			config.VERSION)
+		self.service.add_path('/State',						None, writeable=True)
+		self.service.add_path('/Pv/V',						None, writeable=True, gettextcallback=lambda a, x: "{:.0f}V".format(x))
+		self.service.add_path('/Pv/I',						None, writeable=True, gettextcallback=lambda a, x: "{:.1f}A".format(x))
+		self.service.add_path('/Yield/Power',				None, writeable=True, gettextcallback=lambda a, x: "{:.0f}W".format(x))
+		self.service.add_path('/Dc/0/Voltage',				None, writeable=True, gettextcallback=lambda a, x: "{:.1f}V".format(x))
+		self.service.add_path('/Dc/0/Current',				None, writeable=True, gettextcallback=lambda a, x: "{:.1f}A".format(x))
+		self.service.add_path('/Connected',					1)
+		self.service.register()
 		logger.info ('Initialised Midnite thread: IP=%s, Freq=%d' % (self.sIP, self.iFrequency))
 	#end __init__
 
@@ -72,6 +66,7 @@ class readMidnite ():
 				HR42 = self.classic.read_holding_registers (4200, 100)
 				HR43 = self.classic.read_holding_registers (4300, 100)
 				self.classic.close ()
+				self.service['/Connected'] = 1
 
 				UNIT_ID			= HR41.registers[00]
 				UNIT_SW_DATE_Y	= HR41.registers[1]
@@ -91,20 +86,20 @@ class readMidnite ():
 				MIDNITE_STATE	= (HR41.registers[19] & 0x00FF)
 				SHUNT_A			= float (twos_complement(HR43.registers[70],16))/10
 
-				#logger.info ('Updating: State=%d, V=%f, A=%f, T=%f, CV=%f, CA=%f' % (242, PV_V, PV_A, BATT_T, BATT_V, BATT_A))
-				self.service._dbusservice['/State']					= MIDNITE_VICTRON[CHARGE_STATE]
-				self.service._dbusservice['/Pv/V']					= PV_V
-				self.service._dbusservice['/Pv/I']					= PV_A
-				self.service._dbusservice['/Dc/0/Voltage']		= BATT_V
-				self.service._dbusservice['/Dc/0/Current']		= BATT_A
-				self.service._dbusservice['/Yield/Power']			= round (PV_V * PV_A)
-				self.service._dbusservice['/Connected']			= True
+				#logger.info ('Updating: State=%d, V=%f, A=%f, T=%f, CV=%f, CA=%f' % (config.MIDNITE_VICTRON[CHARGE_STATE], PV_V, PV_A, BATT_T, BATT_V, BATT_A))
+				self.service['/State']				= config.MIDNITE_VICTRON[CHARGE_STATE]
+				self.service['/Pv/V']				= PV_V
+				self.service['/Pv/I']				= PV_A
+				self.service['/Yield/Power']		= round (PV_V * PV_A)
+				self.service['/Dc/0/Voltage']		= BATT_V
+				self.service['/Dc/0/Current']		= BATT_A
 			else:
 				logger.info ('unable to connect to %s' % self.sIP)
-				self.service._dbusservice['/Connected']			= False
+				self.service['/Connected'] = 0
 			#end if
 		except Exception as e:
 			logger.info('Exception updating values: ' + repr(e))
+			self.service['/Connected'] = 0
 		#end try
 		return True
 	#end readModbus
@@ -121,33 +116,11 @@ class readMidnite ():
 #end readMidnite
 
 logger = setup_logging (debug=False)
-
-# Have a mainloop, so we can send/receive asynchronous calls to and from dbus
 DBusGMainLoop (set_as_default=True)
-
-b = DbusDummyService (
-    servicename='com.victronenergy.solarcharger.net',
-    deviceinstance=0,
-    paths={
-		'/State':								{'initial': 0},
-		'/Pv/V':									{'initial': 0},
-		'/Pv/I':									{'initial': 0},
-		'/Dc/0/Voltage':						{'initial': 0},
-		'/Dc/0/Current':						{'initial': 0},
-		#'/Dc/0/Temperature':				{'initial': 0},
-		#'/Link/NetworkMode': 				{'initial': None},
-		#'/Link/NetworkStatus':				{'initial': None},
-		#'/Link/ChargeVoltage':				{'initial': None},
-		#'/Link/ChargeCurrent':				{'initial': None},
-		#'/Settings/ChargeCurrentLimit':	{'initial': 70},
-		'/Settings/BmsPresent':				{'initial': None},
-		'/Yield/Power':						{'initial': None},
-    },
-    productname='Midnite Solar Charger',
-    connection='dbus')
-
-t = readMidnite (MIDNITE_IP, MIDNITE_TIMEOUT, b)
+t = readMidnite (config.MIDNITE_IP, config.MIDNITE_INTERVAL)
 t.run ()
+
 logger.info('Connected to dbus, and switching over to GLib.MainLoop() (= event based)')
 mainloop = GLib.MainLoop()
 mainloop.run()
+
