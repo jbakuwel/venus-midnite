@@ -1,0 +1,7 @@
+#!/bin/bash
+
+mkdir /var/log/classic/battery
+mkdir /var/log/classic/charger
+
+ln -s /data/classic/battery/service /service/classic-battery
+ln -s /data/classic/charger/service /service/classic-charger
